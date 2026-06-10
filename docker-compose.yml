@@ -132,7 +132,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: rag-worker
-    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4 -Q celery,ingestion,evaluation
     env_file:
       - .env
     environment:

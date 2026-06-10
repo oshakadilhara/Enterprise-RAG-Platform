@@ -15,8 +15,7 @@ class QdrantService:
     def __init__(self, settings: Settings):
         self._settings = settings
         self._client = AsyncQdrantClient(
-            host=settings.qdrant_host,
-            port=settings.qdrant_port,
+            url=settings.qdrant_url,
             api_key=settings.qdrant_api_key,
         )
         self._prefix = settings.qdrant_collection_prefix

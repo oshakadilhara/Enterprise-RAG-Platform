@@ -37,12 +37,14 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-card">
-      <div className="flex items-center gap-2 border-b px-6 py-4">
-        <Brain className="h-8 w-8 text-primary" />
+    <aside className="flex h-screen w-64 flex-col border-r border-border/60 bg-card/50 backdrop-blur-xl">
+      <div className="flex items-center gap-3 border-b border-border/60 px-5 py-4">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 shadow-md shadow-primary/20">
+          <Brain className="h-5 w-5 text-white" />
+        </div>
         <div>
-          <h1 className="text-lg font-bold">RAG Platform</h1>
-          <p className="text-xs text-muted-foreground">Enterprise AI</p>
+          <h1 className="text-sm font-bold tracking-tight">RAG Platform</h1>
+          <p className="text-[11px] text-muted-foreground">Enterprise AI</p>
         </div>
       </div>
 
@@ -55,10 +57,10 @@ export function Sidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  ? "bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-md shadow-primary/20"
+                  : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
               )}
             >
               <Icon className="h-4 w-4" />
