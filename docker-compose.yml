@@ -8,8 +8,7 @@ services:
       POSTGRES_USER: rag_user
       POSTGRES_PASSWORD: rag_password
       POSTGRES_DB: rag_platform
-    ports:
-      - "5432:5432"
+    # No host port — backend connects via the Docker network (postgres:5432)
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -47,7 +46,7 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:6333/healthz || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -110,7 +109,7 @@ services:
       OPENSEARCH_PORT: 9200
       S3_ENDPOINT: http://minio:9000
     ports:
-      - "8000:8000"
+      - "8001:8000"  # host 8001 — avoids conflict with services on 8000
     volumes:
       - ./backend:/app
       - upload_data:/app/uploads
@@ -161,7 +160,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:8000/api/v1
+      VITE_API_BASE_URL: http://localhost:8001/api/v1
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -185,7 +184,7 @@ services:
     image: grafana/grafana:10.2.2
     container_name: rag-grafana
     ports:
-      - "3001:3000"
+      - "3002:3000"  # host 3002 — avoids conflict with services on 3001
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
