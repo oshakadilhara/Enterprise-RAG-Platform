@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-frontend
+  namespace: rag-platform
+  labels:
+    app: rag-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rag-frontend
+  template:
+    metadata:
+      labels:
+        app: rag-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: rag-platform/frontend:latest
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-frontend
+  namespace: rag-platform
+spec:
+  selector:
+    app: rag-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
