@@ -43,6 +43,11 @@ export interface Citation {
   chunk_index: number;
   content_snippet: string;
   relevance_score: number;
+  // XAI score breakdown
+  vector_score: number;
+  bm25_score: number;
+  rerank_score: number;
+  match_type: "semantic" | "keyword" | "both";
 }
 
 export interface Message {
@@ -54,7 +59,22 @@ export interface Message {
   model: string | null;
   latency_ms: number | null;
   created_at: string;
+  confidence?: number;
+  abstained?: boolean;
+  cached?: boolean;
 }
+
+export type ChatStreamEvent =
+  | {
+      type: "metadata";
+      conversation_id: string;
+      citations: Citation[];
+      confidence: number;
+      abstained: boolean;
+      cached: boolean;
+    }
+  | { type: "content"; content: string }
+  | { type: "done"; message_id: string };
 
 export interface Conversation {
   id: string;

@@ -46,7 +46,7 @@ async def chat_stream(
 
     async def event_generator():
         async for event in service.chat_stream(request, current_user):
-            yield {"data": event.replace("data: ", "").strip()}
+            yield {"event": event["type"], "data": json.dumps(event)}
 
     return EventSourceResponse(event_generator())
 
@@ -122,15 +122,15 @@ async def get_messages(
     messages = await msg_repo.list_by_conversation(conversation_id)
     result = []
     for m in messages:
-        citations = None
-        if m.citations_json:
-            citations = json.loads(m.citations_json)
+        citations = json.loads(m.citations_json) if m.citations_json else None
+        trace = json.loads(m.retrieval_trace_json) if m.retrieval_trace_json else None
         result.append(MessageResponse(
             id=m.id,
             conversation_id=m.conversation_id,
             role=m.role,
             content=m.content,
             citations=citations,
+            retrieval_trace=trace,
             model=m.model,
             latency_ms=m.latency_ms,
             created_at=m.created_at,

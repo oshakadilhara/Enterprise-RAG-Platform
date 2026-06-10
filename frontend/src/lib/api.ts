@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "@/stores/authStore";
+import type { ChatStreamEvent } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
@@ -75,6 +76,54 @@ export const documentApi = {
 export const chatApi = {
   send: (data: { message: string; workspace_id: string; conversation_id?: string }) =>
     api.post("/chat", data),
+  /**
+   * Streaming chat over SSE. Axios cannot consume streams in the browser,
+   * so this uses fetch + ReadableStream and invokes onEvent per parsed event.
+   */
+  stream: async (
+    data: { message: string; workspace_id: string; conversation_id?: string },
+    onEvent: (event: ChatStreamEvent) => void,
+    signal?: AbortSignal
+  ): Promise<void> => {
+    const token = useAuthStore.getState().accessToken;
+    const response = await fetch(`${API_BASE}/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+      signal,
+    });
+    if (!response.ok || !response.body) {
+      throw new Error(`Stream failed: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE events are separated by a blank line
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() || "";
+      for (const block of blocks) {
+        for (const line of block.split("\n")) {
+          if (line.startsWith("data:")) {
+            try {
+              onEvent(JSON.parse(line.slice(5).trim()) as ChatStreamEvent);
+            } catch {
+              // ignore malformed/keepalive frames
+            }
+          }
+        }
+      }
+    }
+  },
   conversations: (workspaceId?: string) =>
     api.get("/chat/conversations", { params: { workspace_id: workspaceId } }),
   messages: (conversationId: string) =>

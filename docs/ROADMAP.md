@@ -40,11 +40,11 @@ Documentation complete — see [docs/README.md](README.md) for scaling, ops, and
 - [ ] Alembic database migrations
 - [ ] S3 document storage integration (boto3)
 - [ ] PgBouncer deployment (required at 50K users — see [Capacity Planning](CAPACITY_PLANNING.md))
-- [ ] Cost Tier 1: utility model for expansion, confidence-gated expansion, prompt-cache message ordering, token-based history trim, output cap (see [Cost Optimization](COST_OPTIMIZATION.md))
-- [ ] XAI Tier 1: citation score breakdown, abstention threshold, persisted retrieval trace (see [Explainable AI](EXPLAINABLE_AI.md))
-- [ ] Query embedding cache (Redis)
-- [ ] Semantic answer cache with workspace invalidation
-- [ ] Org-level rate limits and token budgets
+- [x] Cost Tier 1: utility model for expansion, confidence-gated expansion, prompt-cache message ordering, token-based history trim, output cap (see [Cost Optimization](COST_OPTIMIZATION.md))
+- [x] XAI Tier 1: citation score breakdown, abstention threshold, persisted retrieval trace (see [Explainable AI](EXPLAINABLE_AI.md))
+- [x] Query embedding cache (Redis)
+- [x] Semantic answer cache with workspace invalidation
+- [x] Org-level rate limits and token budgets (Redis sliding window + daily budgets)
 - [ ] Email notifications for invitations
 - [ ] WebSocket chat streaming (alternative to SSE)
 - [ ] Document preview in UI

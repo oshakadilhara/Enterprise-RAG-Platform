@@ -114,6 +114,10 @@ class IngestionPipeline:
             # Index in OpenSearch
             await self._opensearch.index_documents(workspace_id, search_docs)
 
+            # New content means cached answers in this workspace may be stale
+            from app.services.cache_service import CacheService
+            await CacheService(self._settings).invalidate_workspace(workspace_id)
+
             DOCUMENT_PROCESSING.labels(status="success", file_type=file_type).inc()
             logger.info(
                 "document_processed",

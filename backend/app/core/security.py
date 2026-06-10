@@ -1,16 +1,25 @@
 """Security utilities: JWT, password hashing, RBAC."""
 
+import base64
+import hashlib
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 from uuid import UUID
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt is used directly (passlib is unmaintained and breaks with bcrypt>=4.1).
+# Passwords are pre-hashed with SHA-256 (base64-encoded to avoid NUL bytes),
+# which lifts bcrypt's hard 72-byte input limit.
+_BCRYPT_ROUNDS = 12
+
+
+def _prehash(password: str) -> bytes:
+    return base64.b64encode(hashlib.sha256(password.encode("utf-8")).digest())
 
 
 class Role(str, Enum):
@@ -59,11 +68,14 @@ PERMISSIONS: dict[Role, set[str]] = {
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(_prehash(plain_password), hashed_password.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode("utf-8")
 
 
 def create_access_token(

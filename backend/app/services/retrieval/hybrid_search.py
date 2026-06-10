@@ -1,5 +1,6 @@
 """Hybrid search combining vector similarity and BM25."""
 
+import asyncio
 import time
 from uuid import UUID
 
@@ -7,6 +8,7 @@ from app.core.config import Settings
 from app.core.telemetry import RETRIEVAL_LATENCY
 from app.domain.entities.retrieval import SearchResult
 from app.domain.interfaces.embedding import EmbeddingProvider
+from app.services.cache_service import CacheService
 from app.services.search.opensearch_service import OpenSearchService
 from app.services.vector.qdrant_service import QdrantService
 
@@ -18,11 +20,23 @@ class HybridSearchService:
         embedding_provider: EmbeddingProvider,
         qdrant: QdrantService,
         opensearch: OpenSearchService,
+        cache: CacheService | None = None,
     ):
         self._settings = settings
         self._embedding = embedding_provider
         self._qdrant = qdrant
         self._opensearch = opensearch
+        self._cache = cache
+
+    async def _embed_query(self, query: str, workspace_id: UUID) -> list[float]:
+        if self._cache:
+            cached = await self._cache.get_embedding(workspace_id, query)
+            if cached:
+                return cached
+        vector = await self._embedding.embed_text(query)
+        if self._cache:
+            await self._cache.set_embedding(workspace_id, query, vector)
+        return vector
 
     async def search(
         self,
@@ -35,26 +49,23 @@ class HybridSearchService:
         vector_weight = self._settings.vector_search_weight
         bm25_weight = self._settings.bm25_search_weight
 
-        # Vector search
+        # Vector and BM25 searches are independent — run them in parallel
         start = time.perf_counter()
-        query_vector = await self._embedding.embed_text(query)
-        vector_results = await self._qdrant.search(
+        query_vector = await self._embed_query(query, workspace_id)
+        vector_task = self._qdrant.search(
             workspace_id=workspace_id,
             query_vector=query_vector,
             top_k=top_k,
             filters=filters,
         )
-        RETRIEVAL_LATENCY.labels(stage="vector_search").observe(time.perf_counter() - start)
-
-        # BM25 search
-        start = time.perf_counter()
-        bm25_results = await self._opensearch.search(
+        bm25_task = self._opensearch.search(
             workspace_id=workspace_id,
             query=query,
             top_k=top_k,
             filters=filters,
         )
-        RETRIEVAL_LATENCY.labels(stage="bm25_search").observe(time.perf_counter() - start)
+        vector_results, bm25_results = await asyncio.gather(vector_task, bm25_task)
+        RETRIEVAL_LATENCY.labels(stage="hybrid_search").observe(time.perf_counter() - start)
 
         # Normalize scores
         vector_scores = self._normalize_scores(
@@ -79,6 +90,7 @@ class HybridSearchService:
                 page_number=payload.get("page_number"),
                 chunk_index=payload.get("chunk_index", 0),
                 vector_score=vector_scores.get(chunk_id, 0.0),
+                raw_vector_score=result["score"],
                 upload_date=payload.get("upload_date"),
                 metadata=payload,
             )

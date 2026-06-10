@@ -10,11 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.dependencies import CurrentUser
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.core.logging import get_logger
 from app.models.document import Document, DocumentChunk
 from app.repositories.document_repository import DocumentChunkRepository, DocumentRepository
 from app.repositories.workspace_repository import WorkspaceMemberRepository
 from app.schemas.document import DocumentResponse, DocumentUploadResponse
+from app.services.cache_service import CacheService
+from app.services.search.opensearch_service import OpenSearchService
+from app.services.vector.qdrant_service import QdrantService
 from app.workers.tasks import process_document_task
+
+logger = get_logger(__name__)
 
 
 class DocumentService:
@@ -106,9 +112,27 @@ class DocumentService:
         await self._check_access(doc.workspace_id, current_user.id)
         current_user.require_permission("document:delete")
 
+        workspace_id = doc.workspace_id
+
+        # Remove from search indexes first; a chunk that survives deletion
+        # would keep leaking into retrieval results
+        try:
+            qdrant = QdrantService(self._settings)
+            await qdrant.delete_by_document(workspace_id, str(document_id))
+        except Exception as e:
+            logger.error("qdrant_delete_failed", document_id=str(document_id), error=str(e))
+        try:
+            opensearch = OpenSearchService(self._settings)
+            await opensearch.delete_by_document(workspace_id, str(document_id))
+        except Exception as e:
+            logger.error("opensearch_delete_failed", document_id=str(document_id), error=str(e))
+
         if os.path.exists(doc.storage_path):
             os.remove(doc.storage_path)
         await self._doc_repo.delete(doc)
+
+        # Cached answers may cite the deleted document
+        await CacheService(self._settings).invalidate_workspace(workspace_id)
 
     async def _check_access(self, workspace_id: UUID, user_id: UUID) -> None:
         membership = await self._member_repo.get_membership(workspace_id, user_id)

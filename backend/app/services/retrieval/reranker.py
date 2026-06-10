@@ -1,6 +1,7 @@
 """Reranking service using BGE or Cross-Encoder models."""
 
 import asyncio
+import math
 import time
 
 from sentence_transformers import CrossEncoder
@@ -9,6 +10,12 @@ from app.core.config import Settings
 from app.core.telemetry import RETRIEVAL_LATENCY
 from app.domain.entities.retrieval import SearchResult
 from app.domain.interfaces.reranker import RankedResult, Reranker
+
+
+def _sigmoid(x: float) -> float:
+    """Cross-encoders output raw logits; map to 0-1 so the abstention
+    threshold (retrieval_confidence_threshold) is model-independent."""
+    return 1.0 / (1.0 + math.exp(-x))
 
 
 class BGEReranker(Reranker):
@@ -28,7 +35,7 @@ class BGEReranker(Reranker):
         scores = await asyncio.to_thread(self._model.predict, pairs)
 
         for doc, score in zip(documents, scores):
-            doc.score = float(score)
+            doc.score = _sigmoid(float(score))
 
         return sorted(documents, key=lambda d: d.score, reverse=True)[:top_k]
 
@@ -49,7 +56,7 @@ class CrossEncoderReranker(Reranker):
         pairs = [(query, doc.content) for doc in documents]
         scores = await asyncio.to_thread(self._model.predict, pairs)
         for doc, score in zip(documents, scores):
-            doc.score = float(score)
+            doc.score = _sigmoid(float(score))
         return sorted(documents, key=lambda d: d.score, reverse=True)[:top_k]
 
 

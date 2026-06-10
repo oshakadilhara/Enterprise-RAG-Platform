@@ -15,6 +15,11 @@ class Citation(BaseModel):
     chunk_index: int
     content_snippet: str
     relevance_score: float
+    # XAI Tier 1 — score breakdown (docs/EXPLAINABLE_AI.md)
+    vector_score: float = 0.0
+    bm25_score: float = 0.0
+    rerank_score: float = 0.0
+    match_type: str = "semantic"  # semantic | keyword | both
 
 
 class ChatRequest(BaseModel):
@@ -32,6 +37,10 @@ class ChatResponse(BaseModel):
     model: str
     latency_ms: int
     token_count: int | None = None
+    # XAI Tier 1 — retrieval confidence surfaced to the client
+    confidence: float = 0.0
+    abstained: bool = False
+    cached: bool = False
 
 
 class ConversationCreate(BaseModel):
@@ -56,6 +65,7 @@ class MessageResponse(BaseSchema):
     role: str
     content: str
     citations: list[Citation] | None = None
+    retrieval_trace: dict | None = None
     model: str | None
     latency_ms: int | None
     created_at: datetime

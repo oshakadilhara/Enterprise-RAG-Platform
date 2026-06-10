@@ -67,6 +67,13 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o"
     llm_temperature: float = 0.1
     llm_max_tokens: int = 4096
+    # Cheap model for internal calls (query expansion, classification).
+    # Cost Tier 1 — see docs/COST_OPTIMIZATION.md
+    llm_utility_model: str = "gpt-4o-mini"
+    # Cap answer output tokens (output costs 4x input)
+    answer_max_tokens: int = 1024
+    # Cap chat history by tokens, not message count
+    history_max_tokens: int = 800
 
     # API Keys
     openai_api_key: str | None = None
@@ -83,6 +90,24 @@ class Settings(BaseSettings):
     bm25_search_weight: float = 0.4
     hybrid_top_k: int = 50
     rerank_top_k: int = 5
+
+    # Retrieval confidence / XAI — see docs/EXPLAINABLE_AI.md
+    # Skip query expansion when top vector score >= this (Cost Tier 1)
+    expansion_confidence_threshold: float = 0.7
+    # Abstain from LLM generation when top rerank score < this
+    retrieval_confidence_threshold: float = 0.3
+    abstain_on_low_confidence: bool = True
+
+    # Caching — see docs/COST_OPTIMIZATION.md
+    enable_embedding_cache: bool = True
+    embedding_cache_ttl_seconds: int = 86400  # 24h
+    enable_semantic_cache: bool = True
+    semantic_cache_ttl_seconds: int = 3600  # 1h
+
+    # Per-organization limits (multi-tenant fairness)
+    org_rate_limit_per_minute: int = 500
+    user_rate_limit_per_minute: int = 30
+    org_daily_token_budget: int = 2_000_000
 
     # Chunking
     chunking_strategy: Literal["fixed", "recursive", "semantic"] = "recursive"
